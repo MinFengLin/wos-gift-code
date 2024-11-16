@@ -21,7 +21,7 @@ from requests.adapters import HTTPAdapter, Retry
 # Handle arguments the script is called with
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--code", required=True)
-parser.add_argument("-f", "--player-file", dest="player_file", default="player.json")
+parser.add_argument("-f", "--player-file", dest="player_file", default="players.json")
 parser.add_argument("-r", "--results-file", dest="results_file", default="results.json")
 parser.add_argument("--restart", dest="restart", action="store_true")
 args = parser.parse_args()
@@ -79,17 +79,6 @@ for player in players:
     # Print progress bar
     i += 1
 
-    print(
-        "\x1b[K"
-        + str(i)
-        + "/"
-        + str(len(players))
-        + " complete. Redeeming for "
-        + player["original_name"],
-        end="\r",
-        flush=True,
-    )
-
     # Check if the code has been redeemed for this player already
     # Continue to the next iteration if it has been
     if result["status"].get(player["id"]) == "Successful" and not args.restart:
@@ -124,6 +113,16 @@ for player in players:
         )
         counter_error += 1
         continue
+
+    if player["original_name"] != login_response["data"]["nickname"]:
+        # Update the player's original_name with the new nickname
+        player["original_name"] = login_response["data"]["nickname"]
+
+        # Write the updated list back to players.json
+        with open('players.json', 'w', encoding='utf-8') as file:
+            json.dump(players, file, ensure_ascii=False, indent=4)
+
+        print(f"Nickname updated to {player['original_name']} for {player['id']}")
 
     # Create the request data that contains the signature and the code
     request_data["cdk"] = args.code
@@ -164,6 +163,20 @@ for player in players:
         result["status"][player["id"]] = "Unsuccessful"
         print("\nError occurred: " + str(redeem_response))
         counter_error += 1
+
+    print(
+        "\x1b[K"
+        + str(i)
+        + "/"
+        + str(len(players))
+        + " complete. Redeeming for "
+        + player["original_name"]
+        + " ("
+        + player["id"]
+        + ") "
+        + result["status"][player["id"]]
+    )
+
 
 with open(args.results_file, "w", encoding="utf-8") as fp:
     json.dump(results, fp)
